@@ -61,7 +61,7 @@ const MOCK_MULTI_WINNER_BOUNTY_FRAGMENT = {
       title: "Milestone 1: Design",
       description: "Design the UI/UX for the feature.",
       isCompleted: false,
-    }
+    },
   ],
   contributorProgress: [],
   maxSlots: 5,
@@ -136,11 +136,13 @@ async function setupMocks(page: Page) {
     } as ContestContracts;
 
     (globalThis as { __applyForSlotCalls?: number }).__applyForSlotCalls = 0;
-    (globalThis as { __applicationContracts?: unknown }).__applicationContracts = {
+    (
+      globalThis as { __applicationContracts?: unknown }
+    ).__applicationContracts = {
       applyForSlot: async () => {
         (globalThis as { __applyForSlotCalls?: number }).__applyForSlotCalls =
-          ((globalThis as { __applyForSlotCalls?: number }).__applyForSlotCalls ??
-            0) + 1;
+          ((globalThis as { __applyForSlotCalls?: number })
+            .__applyForSlotCalls ?? 0) + 1;
         return { txHash: "0xfake-e2e-slot-txhash" };
       },
     };
@@ -169,10 +171,14 @@ async function setupMocks(page: Page) {
   });
 
   await page.route("**/api/graphql", async (route) => {
-    let body: { operationName?: string } = {};
+    let body: {
+      operationName?: string;
+      variables?: { id?: string };
+    } = {};
     try {
       body = JSON.parse(route.request().postData() ?? "{}") as {
         operationName?: string;
+        variables?: { id?: string };
       };
     } catch {
       /* ignore */
@@ -186,7 +192,10 @@ async function setupMocks(page: Page) {
           body: JSON.stringify({
             data: {
               bounties: {
-                bounties: [MOCK_BOUNTY_FRAGMENT, MOCK_MULTI_WINNER_BOUNTY_FRAGMENT],
+                bounties: [
+                  MOCK_BOUNTY_FRAGMENT,
+                  MOCK_MULTI_WINNER_BOUNTY_FRAGMENT,
+                ],
                 total: 2,
                 limit: 20,
                 offset: 0,
@@ -195,11 +204,12 @@ async function setupMocks(page: Page) {
           }),
         });
         return;
-      case "Bounty":
-        const requestedId = (body as any).variables?.id;
-        const bountyData = requestedId === BOUNTY_ID_MULTI
-          ? MOCK_MULTI_WINNER_BOUNTY_FRAGMENT
-          : MOCK_BOUNTY_FRAGMENT;
+      case "Bounty": {
+        const requestedId = body.variables?.id;
+        const bountyData =
+          requestedId === BOUNTY_ID_MULTI
+            ? MOCK_MULTI_WINNER_BOUNTY_FRAGMENT
+            : MOCK_BOUNTY_FRAGMENT;
         await route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -208,6 +218,7 @@ async function setupMocks(page: Page) {
           }),
         });
         return;
+      }
       case "TopContributors":
         await route.fulfill({
           status: 200,
@@ -389,7 +400,9 @@ test.describe("Bounty application flow", () => {
       await expect(btn).toBeEnabled();
     });
 
-    test("clicking Apply for Slot calls contract and updates UI", async ({ page }) => {
+    test("clicking Apply for Slot calls contract and updates UI", async ({
+      page,
+    }) => {
       await page.goto(`/bounty/${BOUNTY_ID_MULTI}`);
       const btn = page.getByRole("button", { name: "Apply for Slot" }).first();
       await expect(btn).toBeEnabled();
@@ -409,14 +422,18 @@ test.describe("Bounty application flow", () => {
         .toBeGreaterThan(0);
     });
 
-    test("shows Slots Full and disables when slot count is at capacity", async ({ page }) => {
+    test("shows Slots Full and disables when slot count is at capacity", async ({
+      page,
+    }) => {
       await page.route("**/api/graphql", async (route) => {
         let body: { operationName?: string } = {};
         try {
           body = JSON.parse(route.request().postData() ?? "{}") as {
             operationName?: string;
           };
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         if (body.operationName === "Bounty") {
           await route.fulfill({
             status: 200,
@@ -443,14 +460,18 @@ test.describe("Bounty application flow", () => {
       await expect(btn).toBeDisabled();
     });
 
-    test("shows Already Joined and disables when user is in contributorProgress", async ({ page }) => {
+    test("shows Already Joined and disables when user is in contributorProgress", async ({
+      page,
+    }) => {
       await page.route("**/api/graphql", async (route) => {
         let body: { operationName?: string } = {};
         try {
           body = JSON.parse(route.request().postData() ?? "{}") as {
             operationName?: string;
           };
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         if (body.operationName === "Bounty") {
           await route.fulfill({
             status: 200,

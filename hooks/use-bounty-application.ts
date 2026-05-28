@@ -1,8 +1,11 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { authClient } from "@/lib/auth-client";
 import { bountyKeys } from "@/lib/query/query-keys";
+import { MOCK_MODEL4_MILESTONES } from "@/lib/mock/model4";
 import type { BountyQuery } from "@/lib/graphql/generated";
+import type { ContributorProgress, Bounty } from "@/types/bounty";
 
 // ---------------------------------------------------------------------------
 // Contract client shape (resolved from globalThis.__applicationContracts)
@@ -257,10 +260,6 @@ export function useApproveApplicationSubmission() {
 // Hook: apply for slot (BountyRegistry.apply_for_slot)
 // ---------------------------------------------------------------------------
 
-import { authClient } from "@/lib/auth-client";
-import { MOCK_MODEL4_MILESTONES } from "@/lib/mock/model4";
-import type { ContributorProgress, Bounty } from "@/types/bounty";
-
 export function useApplyForSlot() {
   const qc = useQueryClient();
   const { data: session } = authClient.useSession();
@@ -290,21 +289,25 @@ export function useApplyForSlot() {
         const newProgress: ContributorProgress = {
           userId: session?.user?.id ?? "unknown-user",
           userName: session?.user?.name ?? "Contributor",
-          userAvatarUrl: session?.user?.image ?? "https://github.com/shadcn.png",
+          userAvatarUrl:
+            session?.user?.image ?? "https://github.com/shadcn.png",
           currentMilestoneId: firstMilestoneId,
         };
         const prevProgress = prev.bounty.contributorProgress ?? [];
         const updatedProgress = [...prevProgress, newProgress];
         const occupied = (prev.bounty.totalSlotsOccupied ?? 0) + 1;
 
-        qc.setQueryData<BountyQuery & { bounty?: Partial<Bounty> }>(bountyKeys.detail(bountyId), {
-          ...prev,
-          bounty: {
-            ...prev.bounty,
-            totalSlotsOccupied: occupied,
-            contributorProgress: updatedProgress,
+        qc.setQueryData<BountyQuery & { bounty?: Partial<Bounty> }>(
+          bountyKeys.detail(bountyId),
+          {
+            ...prev,
+            bounty: {
+              ...prev.bounty,
+              totalSlotsOccupied: occupied,
+              contributorProgress: updatedProgress,
+            },
           },
-        });
+        );
       }
       return { prev, bountyId };
     },
@@ -313,7 +316,9 @@ export function useApplyForSlot() {
     },
     onSettled: (_r, _e, variables) => {
       if (variables?.bountyId) {
-        qc.invalidateQueries({ queryKey: bountyKeys.detail(variables.bountyId) });
+        qc.invalidateQueries({
+          queryKey: bountyKeys.detail(variables.bountyId),
+        });
       }
       qc.invalidateQueries({ queryKey: bountyKeys.lists() });
     },
