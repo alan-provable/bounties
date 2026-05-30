@@ -10,6 +10,7 @@ export interface UpdateUserParams {
   github?: string;
   twitter?: string;
   website?: string;
+  role?: "sponsor" | "contributor";
 }
 
 export async function updateUser(params: UpdateUserParams) {

@@ -10,6 +10,7 @@ export interface User {
   github?: string;
   twitter?: string;
   website?: string;
+  role?: "sponsor" | "contributor";
 }
 
 interface SessionUser {
@@ -105,6 +106,7 @@ export async function getCurrentUser(): Promise<User | null> {
       github?: string | null;
       twitter?: string | null;
       website?: string | null;
+      role?: string | null;
     };
 
     const id = u.id;
@@ -119,6 +121,9 @@ export async function getCurrentUser(): Promise<User | null> {
       github: u.github ?? undefined,
       twitter: u.twitter ?? undefined,
       website: u.website ?? undefined,
+      role: (u.role === "sponsor" || u.role === "contributor"
+        ? u.role
+        : "contributor") as "sponsor" | "contributor",
     };
   } catch (error) {
     console.error("Failed to resolve current user from session:", error);

@@ -3,6 +3,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useState } from "react";
 import { Form } from "@/components/ui/form";
 import { FormFieldWrapper } from "@/components/ui/form-field-wrapper";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ import { Loader2 } from "lucide-react";
 import { useUpdateUserMutation } from "@/hooks/use-user-mutations";
 import { useQueryClient } from "@tanstack/react-query";
 import { authKeys } from "@/lib/query/query-keys";
+import { useUserRole } from "@/hooks/use-user-role";
 
 const profileSchema = z.object({
   name: z
@@ -52,10 +54,9 @@ const profileSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
-type SessionCache = { user?: Partial<ProfileFormValues> } & Record<
-  string,
-  unknown
->;
+type SessionCache = {
+  user?: Partial<ProfileFormValues & { role?: string }>;
+} & Record<string, unknown>;
 
 interface ProfileTabProps {
   defaultValues: ProfileFormValues;
@@ -64,6 +65,8 @@ interface ProfileTabProps {
 export function ProfileTab({ defaultValues }: ProfileTabProps) {
   const queryClient = useQueryClient();
   const { mutateAsync, isPending } = useUpdateUserMutation();
+  const currentRole = useUserRole();
+  const [isTogglingRole, setIsTogglingRole] = useState(false);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -92,6 +95,29 @@ export function ProfileTab({ defaultValues }: ProfileTabProps) {
       form.reset(values);
     } catch {
       queryClient.setQueryData(authKeys.session(), previous);
+    }
+  };
+
+  const handleRoleToggle = async () => {
+    setIsTogglingRole(true);
+    const newRole = currentRole === "sponsor" ? "contributor" : "sponsor";
+
+    const previous = queryClient.getQueryData<SessionCache>(authKeys.session());
+
+    queryClient.setQueryData<SessionCache>(authKeys.session(), (old) => {
+      if (!old || typeof old !== "object") return old;
+      return {
+        ...old,
+        user: { ...old.user, role: newRole },
+      };
+    });
+
+    try {
+      await mutateAsync({ role: newRole as "sponsor" | "contributor" });
+    } catch {
+      queryClient.setQueryData(authKeys.session(), previous);
+    } finally {
+      setIsTogglingRole(false);
     }
   };
 
@@ -176,6 +202,38 @@ export function ProfileTab({ defaultValues }: ProfileTabProps) {
               />
             )}
           />
+        </div>
+
+        <div className="space-y-4 pt-4 border-t">
+          <h3 className="text-sm font-medium">Account Settings</h3>
+          <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
+            <div className="flex flex-col gap-1">
+              <p className="text-sm font-medium">Sponsor Access</p>
+              <p className="text-xs text-muted-foreground">
+                {currentRole === "sponsor"
+                  ? "You have sponsor privileges. Click to switch to contributor."
+                  : "You are a contributor. Click to switch to sponsor."}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant={currentRole === "sponsor" ? "default" : "outline"}
+              size="sm"
+              onClick={handleRoleToggle}
+              disabled={isTogglingRole}
+            >
+              {isTogglingRole ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : currentRole === "sponsor" ? (
+                "Switch to Contributor"
+              ) : (
+                "Switch to Sponsor"
+              )}
+            </Button>
+          </div>
         </div>
 
         {form.formState.errors.root && (
