@@ -224,6 +224,30 @@ describe("use-bounty-application mutations", () => {
     });
   });
 
+  it("propagates apply contract errors", async () => {
+    const queryClient = createQueryClient();
+    applicationClient.apply.mockRejectedValueOnce(new Error("tx failed"));
+    const { result } = renderHook(() => useApplyToBounty(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          bountyId,
+          applicantAddress: "GAPPLICANT",
+          proposal: "I can cover the tests.",
+        }),
+      ).rejects.toThrow("tx failed");
+    });
+
+    expect(applicationClient.apply).toHaveBeenCalledWith({
+      applicant: "GAPPLICANT",
+      bountyId: 42n,
+      proposal: "I can cover the tests.",
+    });
+  });
+
   it("rejects an apply mutation with a missing wallet address", async () => {
     const queryClient = createQueryClient();
     const { result } = renderHook(() => useApplyToBounty(), {
@@ -547,6 +571,39 @@ describe("use-bounty-application mutations", () => {
     expect(getBounty(queryClient).applications).toEqual([
       { id: "app-2", applicantAddress: "GOTHER", status: "PENDING" },
     ]);
+  });
+
+  it("rolls back declined applicant optimism on mutation error", async () => {
+    const queryClient = createQueryClient();
+    const previous = seedBounty(queryClient, {
+      applications: [
+        { id: "app-1", applicantAddress: "GAPPLICANT", status: "PENDING" },
+        { id: "app-2", applicantAddress: "GOTHER", status: "PENDING" },
+      ],
+    });
+    let trimCalls = 0;
+    const erroringReason = {
+      trim: jest.fn(() => {
+        trimCalls += 1;
+        if (trimCalls === 1) return "Out of scope";
+        throw new Error("decline failed");
+      }),
+    } as unknown as string;
+    const { result } = renderHook(() => useDeclineApplicant(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          bountyId,
+          applicantAddress: "GAPPLICANT",
+          reason: erroringReason,
+        }),
+      ).rejects.toThrow("decline failed");
+    });
+
+    expect(queryClient.getQueryData(detailKey)).toEqual(previous);
   });
 
   it("posts disputes and invalidates bounty queries on success", async () => {
