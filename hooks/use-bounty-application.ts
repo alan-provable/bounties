@@ -114,6 +114,13 @@ export function useApplyToBounty() {
       applicantAddress: string;
       proposal: string;
     }) => {
+      if (!applicantAddress.trim()) {
+        throw new ApplicationError(
+          "tx_failed",
+          "Applicant wallet address is required.",
+        );
+      }
+
       const client = resolveApplicationClient();
       return client.apply({
         applicant: applicantAddress,
