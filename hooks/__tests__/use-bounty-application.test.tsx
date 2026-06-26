@@ -521,6 +521,7 @@ describe("use-bounty-application mutations", () => {
         currentMilestoneId: "m1",
       },
     ]);
+    expect(getBounty(queryClient).totalSlotsOccupied).toBe(1);
   });
 
   it("declines an applicant by removing it from the applications list", async () => {
